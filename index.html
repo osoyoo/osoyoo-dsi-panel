@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>OSOYOO DSI Panel APT Repository</title>
+    <style>
+        body { font-family: Arial, sans-serif; max-width: 800px; margin: 50px auto; padding: 20px; }
+        pre { background: #f4f4f4; padding: 15px; border-radius: 5px; overflow-x: auto; }
+        code { background: #f4f4f4; padding: 2px 5px; border-radius: 3px; }
+        h1 { color: #333; }
+        h2 { color: #666; margin-top: 30px; }
+    </style>
+</head>
+<body>
+    <h1>OSOYOO DSI Panel APT Repository</h1>
+    <p>APT repository for OSOYOO 720x1280 DSI touchscreen panel drivers for Raspberry Pi.</p>
+
+    <h2>Installation</h2>
+    <p>Add this repository to your Raspberry Pi:</p>
+    <pre>echo "deb [trusted=yes] https://osoyoo.github.io/osoyoo-dsi-panel/ ./" | \
+sudo tee /etc/apt/sources.list.d/osoyoo.list
+
+sudo apt update
+sudo apt install osoyoo-dsi-panel-dkms</pre>
+
+    <h2>Configuration</h2>
+    <p>After installation, edit <code>/boot/firmware/config.txt</code> (or <code>/boot/config.txt</code>) and add:</p>
+    <pre># For 7" panel:
+dtoverlay=osoyoo-panel-dsi-7inch
+
+# For 10.1" panel:
+dtoverlay=osoyoo-panel-dsi-10inch</pre>
+
+    <p>Then reboot: <code>sudo reboot</code></p>
+
+    <h2>Features</h2>
+    <ul>
+        <li>Automatic hardware detection (Pi 3/4/5)</li>
+        <li>DKMS support for automatic kernel rebuilds</li>
+        <li>Model-specific driver variants</li>
+        <li>Support for 7" and 10.1" DSI panels</li>
+    </ul>
+
+    <h2>Support</h2>
+    <ul>
+        <li>GitHub: <a href="https://github.com/osoyoo/osoyoo-dsi-panel">osoyoo/osoyoo-dsi-panel</a></li>
+        <li>Email: support@osoyoo.info</li>
+    </ul>
+
+    <h2>Repository Contents</h2>
+    <ul>
+        <li><a href="Packages">Packages</a></li>
+        <li><a href="Packages.gz">Packages.gz</a></li>
+        <li><a href="Release">Release</a></li>
+        <li><a href="pool/main/">Package Pool</a></li>
+    </ul>
+</body>
+</html>
