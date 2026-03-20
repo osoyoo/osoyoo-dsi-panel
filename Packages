@@ -2,13 +2,13 @@ Package: osoyoo-dsi-panel-dkms
 Version: 1.0-1
 Architecture: all
 Maintainer: OSOYOO <support@osoyoo.info>
-Installed-Size: 60
+Installed-Size: 138
 Depends: dkms, device-tree-compiler
 Filename: pool/main/osoyoo-dsi-panel-dkms_1.0-1_all.deb
-Size: 10270
-MD5sum: 16bdd82e622802b8daccb70ca252fca8
-SHA1: 875550705b73763423bc80143357a5f1ef9aac6e
-SHA256: 301cc4e60ceaf7f39b891b5901756364bee74ca619bb4fa7ac961113e0dbaa2d
+Size: 10406
+MD5sum: 0b54914479a41361841be696f45c4809
+SHA1: 47aa0ed8200b95069756d86c339f8fafac3aff3e
+SHA256: c9367fac4789b5e7940915f58fa756963f5f777543514ed59b7d4eb8093b8e72
 Section: kernel
 Priority: optional
 Description: OSOYOO DSI Panel Driver (DKMS)
