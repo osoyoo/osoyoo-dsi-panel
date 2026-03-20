@@ -1,0 +1,162 @@
+name: Build APT Repository
+
+on:
+  push:
+    branches:
+      - master
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pages: write
+  id-token: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v3
+
+    - name: Install dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y build-essential debhelper dkms device-tree-compiler dpkg-dev
+
+    - name: Build .deb package
+      run: |
+        dpkg-buildpackage -us -uc -b || {
+          echo "Build failed, checking logs..."
+          cat ../osoyoo-dsi-panel-dkms_*.build || true
+          exit 1
+        }
+
+    - name: Create APT repository structure
+      run: |
+        mkdir -p apt-repo/pool/main
+        cp ../osoyoo-dsi-panel-dkms_*.deb apt-repo/pool/main/
+
+        cd apt-repo
+
+        # Generate Packages file
+        dpkg-scanpackages pool/ /dev/null > Packages
+        gzip -k -f Packages
+
+        # Generate Release file
+        cat > Release << EOF
+        Origin: OSOYOO DSI Panel Repository
+        Label: OSOYOO
+        Suite: stable
+        Codename: stable
+        Version: 1.0
+        Architectures: all arm64 armhf
+        Components: main
+        Description: OSOYOO DSI Panel Driver Repository for Raspberry Pi
+        Date: $(date -R)
+        EOF
+
+        # Add checksums
+        echo "MD5Sum:" >> Release
+        md5sum Packages Packages.gz | sed 's/^/ /' >> Release
+
+        echo "SHA1:" >> Release
+        sha1sum Packages Packages.gz | sed 's/^/ /' >> Release
+
+        echo "SHA256:" >> Release
+        sha256sum Packages Packages.gz | sed 's/^/ /' >> Release
+
+        # Create index.html for easier navigation
+        cat > index.html << 'HTMLEOF'
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <title>OSOYOO DSI Panel APT Repository</title>
+            <style>
+                body { font-family: Arial, sans-serif; max-width: 800px; margin: 50px auto; padding: 20px; }
+                pre { background: #f4f4f4; padding: 15px; border-radius: 5px; overflow-x: auto; }
+                code { background: #f4f4f4; padding: 2px 5px; border-radius: 3px; }
+                h1 { color: #333; }
+                h2 { color: #666; margin-top: 30px; }
+            </style>
+        </head>
+        <body>
+            <h1>OSOYOO DSI Panel APT Repository</h1>
+            <p>APT repository for OSOYOO 720x1280 DSI touchscreen panel drivers for Raspberry Pi.</p>
+
+            <h2>Installation</h2>
+            <p>Add this repository to your Raspberry Pi:</p>
+            <pre>echo "deb [trusted=yes] https://osoyoo.github.io/osoyoo-dsi-panel/ ./" | \
+        sudo tee /etc/apt/sources.list.d/osoyoo.list
+
+        sudo apt update
+        sudo apt install osoyoo-dsi-panel-dkms</pre>
+
+            <h2>Configuration</h2>
+            <p>After installation, edit <code>/boot/firmware/config.txt</code> (or <code>/boot/config.txt</code>) and add:</p>
+            <pre># For 7" panel:
+        dtoverlay=osoyoo-panel-dsi-7inch
+
+        # For 10.1" panel:
+        dtoverlay=osoyoo-panel-dsi-10inch</pre>
+
+            <p>Then reboot: <code>sudo reboot</code></p>
+
+            <h2>Features</h2>
+            <ul>
+                <li>Automatic hardware detection (Pi 3/4/5)</li>
+                <li>DKMS support for automatic kernel rebuilds</li>
+                <li>Model-specific driver variants</li>
+                <li>Support for 7" and 10.1" DSI panels</li>
+            </ul>
+
+            <h2>Support</h2>
+            <ul>
+                <li>GitHub: <a href="https://github.com/osoyoo/osoyoo-dsi-panel">osoyoo/osoyoo-dsi-panel</a></li>
+                <li>Email: support@osoyoo.info</li>
+            </ul>
+
+            <h2>Repository Contents</h2>
+            <ul>
+                <li><a href="Packages">Packages</a></li>
+                <li><a href="Packages.gz">Packages.gz</a></li>
+                <li><a href="Release">Release</a></li>
+                <li><a href="pool/main/">Package Pool</a></li>
+            </ul>
+        </body>
+        </html>
+        HTMLEOF
+
+        cd ..
+
+    - name: Upload artifact
+      uses: actions/upload-artifact@v3
+      with:
+        name: apt-repository
+        path: apt-repo/
+
+    - name: Deploy to GitHub Pages
+      uses: peaceiris/actions-gh-pages@v3
+      with:
+        github_token: ${{ secrets.GITHUB_TOKEN }}
+        publish_dir: ./apt-repo
+        publish_branch: gh-pages
+        cname: false
+
+    - name: Summary
+      run: |
+        echo "## APT Repository Built Successfully! 🎉" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "The APT repository has been deployed to GitHub Pages." >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "### Installation Instructions" >> $GITHUB_STEP_SUMMARY
+        echo '```bash' >> $GITHUB_STEP_SUMMARY
+        echo 'echo "deb [trusted=yes] https://osoyoo.github.io/osoyoo-dsi-panel/ ./" | \' >> $GITHUB_STEP_SUMMARY
+        echo '    sudo tee /etc/apt/sources.list.d/osoyoo.list' >> $GITHUB_STEP_SUMMARY
+        echo '' >> $GITHUB_STEP_SUMMARY
+        echo 'sudo apt update' >> $GITHUB_STEP_SUMMARY
+        echo 'sudo apt install osoyoo-dsi-panel-dkms' >> $GITHUB_STEP_SUMMARY
+        echo '```' >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "### Repository URL" >> $GITHUB_STEP_SUMMARY
+        echo "https://osoyoo.github.io/osoyoo-dsi-panel/" >> $GITHUB_STEP_SUMMARY
