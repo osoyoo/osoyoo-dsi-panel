@@ -18,3 +18,7 @@ debian/*.log
 ../*.buildinfo
 ../*.dsc
 ../*.tar.*
+
+# macOS metadata
+.DS_Store
+._*
