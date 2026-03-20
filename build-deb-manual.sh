@@ -3,6 +3,9 @@
 
 set -e
 
+# Prevent macOS from creating ._* metadata files
+export COPYFILE_DISABLE=1
+
 PACKAGE_NAME="osoyoo-dsi-panel-dkms"
 VERSION="1.0-1"
 ARCH="all"
@@ -56,6 +59,10 @@ cp dkms.conf "${BUILD_DIR}/usr/src/osoyoo-dsi-panel-1.0/"
 cp osoyoo-panel-dsi-7inch.dts "${BUILD_DIR}/usr/src/osoyoo-dsi-panel-1.0/"
 cp osoyoo-panel-dsi-10inch.dts "${BUILD_DIR}/usr/src/osoyoo-dsi-panel-1.0/"
 
+# Remove any macOS metadata files
+find "${BUILD_DIR}" -name "._*" -delete 2>/dev/null || true
+find "${BUILD_DIR}" -name ".DS_Store" -delete 2>/dev/null || true
+
 # Set permissions
 find "${BUILD_DIR}" -type d -exec chmod 755 {} \;
 find "${BUILD_DIR}" -type f -exec chmod 644 {} \;
@@ -79,9 +86,9 @@ if [[ "$OSTYPE" == "darwin"* ]]; then
         echo "Warning: dpkg-deb not found. Creating tarball instead."
         echo "You'll need to convert this to .deb on a Linux system."
 
-        # Create data and control tarballs
-        (cd "${BUILD_DIR}" && find . -path './DEBIAN' -prune -o -type f -print | xargs tar czf ../data.tar.gz)
-        (cd "${BUILD_DIR}/DEBIAN" && tar czf ../../control.tar.gz *)
+        # Create data and control tarballs (excluding macOS metadata)
+        (cd "${BUILD_DIR}" && tar --exclude='._*' --exclude='.DS_Store' -czf ../data.tar.gz --exclude='DEBIAN' .)
+        (cd "${BUILD_DIR}/DEBIAN" && tar --exclude='._*' --exclude='.DS_Store' -czf ../../control.tar.gz .)
 
         # Create debian-binary
         echo "2.0" > debian-binary
