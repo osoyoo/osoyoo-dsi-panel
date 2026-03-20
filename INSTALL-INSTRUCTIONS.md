@@ -31,9 +31,9 @@ sudo nano /boot/firmware/config.txt  # or /boot/config.txt
 # Add one of these lines:
 dtoverlay=osoyoo-panel-dsi-7inch     # for 7" panel
 # OR
-dtoverlay=osoyoo-panel-dsi-10inch, dsi0, 4lane    # for 10.1" panel in dsi0 of Pi 5 or CM5
+dtoverlay=osoyoo-panel-dsi-10inch,dsi0,4lane    # for 10.1" panel in dsi0 of Pi 5 or CM5
 # OR
-dtoverlay=osoyoo-panel-dsi-10inch, dsi1, 4lane    # for 10.1" panel in dsi1 of Pi 5 or CM5
+dtoverlay=osoyoo-panel-dsi-10inch,dsi1,4lane    # for 10.1" panel in dsi1 of Pi 5 or CM5
 # OR
 dtoverlay=osoyoo-panel-dsi-10inch   # for 10.1" panel  Pi 3/4 or CM3/4
 
