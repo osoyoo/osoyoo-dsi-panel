@@ -1,5 +1,9 @@
 # Installation Instructions - OSOYOO DSI Panel Driver
+Supported Models:
 
+7-inch DSI touchscreen (720x1280) Purchase Link: https://osoyoo.store/products/7-dsi-ips-720-1280-hd-capacitive-touchscreen-for-raspberry-pi-5-4b-3b-3a-dsi-gpio-powered-5-point-touch-6h-hardness-tempered-glass-anti-fingerprint?_pos=1&_psq=720&_ss=e&_v=1.0
+
+10.1-inch DSI touchscreen (720x1280) Purchase Link: https://osoyoo.store/products/osoyoo-10-1-ips-dsi-touchscreen-display-for-raspberry-pi-5-4-3-2
 Due to macOS/Linux tar format incompatibility, we provide two installation methods:
 
 ## Method 1: Direct Installation (Recommended - Fastest)
