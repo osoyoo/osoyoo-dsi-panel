@@ -21,16 +21,23 @@ if [ "$EUID" -ne 0 ]; then
     exit 1
 fi
 
-# Panel size selection. Default is the 10.1" panel.
-#   sudo ./install-direct.sh          -> 10.1" panel
-#   sudo ./install-direct.sh 7inch    -> 7" panel
-PANEL_ARG="${1:-10inch}"
+# Panel selection.
+#   sudo ./install-direct.sh          -> auto-detect the panel at boot (default)
+#   sudo ./install-direct.sh 7inch    -> force the 7" panel  (disables auto-detect)
+#   sudo ./install-direct.sh 10inch   -> force the 10.1" panel (disables auto-detect)
+# With no argument the installer writes a sensible default overlay and installs a
+# boot-time service that reads the touch controller, identifies the connected panel,
+# and corrects config.txt automatically.
+PANEL_EXPLICIT=0
+PANEL_ARG="${1:-}"
+[ -n "$PANEL_ARG" ] && PANEL_EXPLICIT=1
 case "$PANEL_ARG" in
-    7|7in|7inch|7-inch)                   PANEL_SIZE="7inch" ;;
-    10|10in|10inch|10-inch|10.1|10.1inch) PANEL_SIZE="10inch" ;;
+    ""|10|10in|10inch|10-inch|10.1|10.1inch) PANEL_SIZE="10inch" ;;
+    7|7in|7inch|7-inch)                      PANEL_SIZE="7inch" ;;
     *)
-        echo "Unknown panel '$PANEL_ARG' (expected 7inch or 10inch); defaulting to 10inch"
+        echo "Unknown panel '$PANEL_ARG' (expected 7inch or 10inch); using auto-detect with a 10inch default"
         PANEL_SIZE="10inch"
+        PANEL_EXPLICIT=0
         ;;
 esac
 
@@ -84,7 +91,7 @@ detect_hardware() {
 # Install dependencies
 echo "Installing dependencies..."
 apt-get update
-apt-get install -y dkms device-tree-compiler
+apt-get install -y dkms device-tree-compiler i2c-tools
 
 # Install kernel headers based on distribution
 KERNEL_VERSION=$(uname -r)
@@ -250,6 +257,30 @@ else
 fi
 echo ""
 
+# ---------------------------------------------------------------------------
+# Install the boot-time panel auto-detect service.
+#
+# The DSI touch controller is only powered once a panel overlay is active, so the
+# panel cannot be identified at install time on a fresh system. Instead the service
+# runs at boot, reads the Goodix touch controller (GT911 -> 7", GT9271 -> 10.1"),
+# and corrects config.txt if the loaded overlay does not match the connected panel.
+# When a panel is forced (7inch/10inch argument) auto-detect is disabled.
+# ---------------------------------------------------------------------------
+echo "Installing panel auto-detect service..."
+install -m 0755 "${SCRIPT_DIR}/osoyoo-panel-detect.sh" /usr/local/sbin/osoyoo-panel-detect
+install -m 0644 "${SCRIPT_DIR}/osoyoo-panel-detect.service" /etc/systemd/system/osoyoo-panel-detect.service
+systemctl daemon-reload 2>/dev/null || true
+if [ "$PANEL_EXPLICIT" = "1" ]; then
+    touch /etc/osoyoo-panel-detect.disabled
+    systemctl disable osoyoo-panel-detect.service >/dev/null 2>&1 || true
+    echo "  ✓ auto-detect installed but disabled (panel forced to ${PANEL_SIZE})"
+else
+    rm -f /etc/osoyoo-panel-detect.disabled
+    systemctl enable osoyoo-panel-detect.service >/dev/null 2>&1 || true
+    echo "  ✓ auto-detect enabled (matches config.txt to the connected panel at boot)"
+fi
+echo ""
+
 if [ -n "$DSI_LANES" ]; then LANE_DESC="4-lane"; else LANE_DESC="2-lane"; fi
 
 echo "=========================================="
@@ -259,9 +290,18 @@ echo ""
 echo "Hardware Configuration:"
 echo "  Model:   $PI_MODEL"
 echo "  Kernel:  $KERNEL_VERSION"
-echo "  Panel:   ${PANEL_SIZE} (${LANE_DESC})"
+if [ "$PANEL_EXPLICIT" = "1" ]; then
+    echo "  Panel:   ${PANEL_SIZE} (${LANE_DESC}) [forced]"
+else
+    echo "  Panel:   auto-detect at boot (default until detected: ${PANEL_SIZE}, ${LANE_DESC})"
+fi
 echo "  Overlay: $OVERLAY_LINE"
 echo ""
+if [ "$PANEL_EXPLICIT" != "1" ]; then
+    echo "On first boot the connected panel is auto-detected. If it is the other size,"
+    echo "config.txt is corrected automatically and the Pi reboots once more."
+    echo ""
+fi
 echo "A reboot is required for the panel to start."
 read -r -p "Reboot now? [y/N] " REBOOT_ANS || REBOOT_ANS=""
 case "$REBOOT_ANS" in

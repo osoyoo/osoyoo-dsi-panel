@@ -27,24 +27,44 @@ sudo ./install-direct.sh
 
 That's it. The script:
 
-1. Installs build dependencies (`dkms`, `device-tree-compiler`, kernel headers).
+1. Installs build dependencies (`dkms`, `device-tree-compiler`, `i2c-tools`, kernel headers).
 2. Detects your Raspberry Pi model and picks the matching driver source.
 3. Builds and installs the kernel modules via DKMS (so they rebuild automatically on
    kernel updates).
 4. Installs the device-tree overlays.
-5. **Writes the correct `dtoverlay=` line into `config.txt` for your board** — 2-lane
-   on Pi 3 / Pi 4, 4-lane on Pi 5 — backing the file up first.
-6. Offers to reboot.
+5. **Writes the correct `dtoverlay=` line into `config.txt`** for your board (2-lane on
+   Pi 3 / Pi 4, 4-lane on Pi 5), backing the file up first.
+6. Installs a boot-time **auto-detect service** that figures out whether a 7" or 10.1"
+   panel is connected (see below).
+7. Offers to reboot.
 
 After it finishes, **reboot** and the panel comes up.
 
-### 7-inch panel
+### Automatic 7" vs 10.1" detection
 
-The default is the 10.1" panel. For the 7" panel:
+You don't need to tell the installer which panel you have. The 7" and 10.1" panels use
+different Goodix touch controllers (**GT911** on the 7", **GT9271** on the 10.1"), and the
+installed `osoyoo-panel-detect` service reads that chip ID over I2C at boot to identify the
+physical panel, then makes `config.txt` match it:
+
+- On first boot the panel is powered by a default overlay so the touch controller can be read.
+- If the connected panel is the *other* size, the service corrects `config.txt` and reboots
+  **once** automatically. After that it is a no-op on every boot (and will re-correct again
+  if you ever swap panels).
+
+This means the **same `install-direct.sh` command works for either panel** on Pi 3 / Pi 4 / Pi 5.
+
+### Forcing a panel (optional)
+
+To skip auto-detection and pin a specific panel:
 
 ```bash
-sudo ./install-direct.sh 7inch
+sudo ./install-direct.sh 7inch     # force the 7" panel
+sudo ./install-direct.sh 10inch    # force the 10.1" panel
 ```
+
+Forcing writes `/etc/osoyoo-panel-detect.disabled`, which turns the auto-detect service off so
+your choice sticks. Delete that file (or re-run with no argument) to re-enable auto-detection.
 
 The script is safe to re-run — it replaces its own overlay line instead of duplicating it.
 
@@ -97,6 +117,10 @@ sudo ./install-direct.sh
 
 ```bash
 sudo dkms remove osoyoo-dsi-panel/1.0 --all
+sudo systemctl disable --now osoyoo-panel-detect.service
+sudo rm -f /usr/local/sbin/osoyoo-panel-detect \
+           /etc/systemd/system/osoyoo-panel-detect.service \
+           /etc/osoyoo-panel-detect.disabled
 ```
 
 Then remove the `dtoverlay=osoyoo-panel-dsi-*` line from `/boot/firmware/config.txt`
@@ -105,11 +129,13 @@ Then remove the `dtoverlay=osoyoo-panel-dsi-*` line from `/boot/firmware/config.
 ## Repository layout
 
 ```
-install-direct.sh          # the installer (run this)
-Makefile, dkms.conf        # DKMS build config
+install-direct.sh            # the installer (run this)
+osoyoo-panel-detect.sh       # boot-time 7"/10.1" auto-detect (installed as a service)
+osoyoo-panel-detect.service  # systemd unit that runs the detector at boot
+Makefile, dkms.conf          # DKMS build config
 src/pi3/  src/pi4/  src/pi5/
     osoyoo-panel-dsi.c            # panel driver
     osoyoo-panel-regulator.c     # backlight/regulator driver
-    osoyoo-panel-dsi-7inch.dts   # 7" overlay source
-    osoyoo-panel-dsi-10inch.dts  # 10.1" overlay source (2-lane default, ,4lane param)
+    osoyoo-panel-dsi-7inch.dts   # 7" overlay source  (Goodix GT911 touch)
+    osoyoo-panel-dsi-10inch.dts  # 10.1" overlay source (Goodix GT9271; 2-lane default, ,4lane param)
 ```
