@@ -21,6 +21,19 @@ if [ "$EUID" -ne 0 ]; then
     exit 1
 fi
 
+# Panel size selection. Default is the 10.1" panel.
+#   sudo ./install-direct.sh          -> 10.1" panel
+#   sudo ./install-direct.sh 7inch    -> 7" panel
+PANEL_ARG="${1:-10inch}"
+case "$PANEL_ARG" in
+    7|7in|7inch|7-inch)                   PANEL_SIZE="7inch" ;;
+    10|10in|10inch|10-inch|10.1|10.1inch) PANEL_SIZE="10inch" ;;
+    *)
+        echo "Unknown panel '$PANEL_ARG' (expected 7inch or 10inch); defaulting to 10inch"
+        PANEL_SIZE="10inch"
+        ;;
+esac
+
 # Hardware detection function
 detect_hardware() {
     local pi_model="unknown"
@@ -204,28 +217,59 @@ if [ -f "${SRC_BASE}/osoyoo-panel-dsi-10inch.dts" ]; then
 fi
 
 echo ""
+
+# ---------------------------------------------------------------------------
+# Configure the boot overlay automatically (idempotent, with backup).
+#
+# DSI lane count is chosen by Pi model:
+#   Pi 3 / Pi 4  -> 2-lane  (dtoverlay=osoyoo-panel-dsi-10inch)
+#   Pi 5         -> 4-lane  (dtoverlay=osoyoo-panel-dsi-10inch,4lane)
+# The 10.1" overlay is 2-lane by default; the ",4lane" parameter switches it.
+# The 7" panel is always 2-lane.
+# ---------------------------------------------------------------------------
+DSI_LANES=""
+if [ "$PANEL_SIZE" = "10inch" ] && [ "$PI_MODEL" = "pi5" ]; then
+    DSI_LANES=",4lane"
+fi
+OVERLAY_LINE="dtoverlay=osoyoo-panel-dsi-${PANEL_SIZE}${DSI_LANES}"
+
+echo "Configuring boot overlay..."
+CONFIG_TXT=/boot/firmware/config.txt
+[ -f "$CONFIG_TXT" ] || CONFIG_TXT=/boot/config.txt
+if [ -f "$CONFIG_TXT" ]; then
+    cp -a "$CONFIG_TXT" "${CONFIG_TXT}.osoyoo.bak"
+    # Remove any overlay line we added before, then append the correct one.
+    sed -i '/# OSOYOO DSI panel (added by install-direct.sh)/d; /^dtoverlay=osoyoo-panel-dsi-/d' "$CONFIG_TXT"
+    printf '\n# OSOYOO DSI panel (added by install-direct.sh)\n%s\n' "$OVERLAY_LINE" >> "$CONFIG_TXT"
+    echo "  ✓ Updated $CONFIG_TXT"
+    echo "    line:   $OVERLAY_LINE"
+    echo "    backup: ${CONFIG_TXT}.osoyoo.bak"
+else
+    echo "  ! Could not find config.txt automatically."
+    echo "    Add this line to your Pi config manually: $OVERLAY_LINE"
+fi
+echo ""
+
+if [ -n "$DSI_LANES" ]; then LANE_DESC="4-lane"; else LANE_DESC="2-lane"; fi
+
 echo "=========================================="
 echo "Installation Complete!"
 echo "=========================================="
 echo ""
 echo "Hardware Configuration:"
-echo "  Model: $PI_MODEL"
-echo "  Kernel: $KERNEL_VERSION"
+echo "  Model:   $PI_MODEL"
+echo "  Kernel:  $KERNEL_VERSION"
+echo "  Panel:   ${PANEL_SIZE} (${LANE_DESC})"
+echo "  Overlay: $OVERLAY_LINE"
 echo ""
-echo "Next Steps:"
-echo "1. Edit your config file:"
-echo "   sudo nano /boot/firmware/config.txt"
-echo "   (or /boot/config.txt on older systems)"
-echo ""
-echo "2. Add ONE of the following lines:"
-echo "   For 7\" panel:"
-echo "     dtoverlay=osoyoo-panel-dsi-7inch"
-echo ""
-echo "   For 10.1\" panel:"
-echo "     dtoverlay=osoyoo-panel-dsi-10inch"
-echo "   (or for 4-lane mode: dtoverlay=osoyoo-panel-dsi-10inch,4lane)"
-echo ""
-echo "3. Reboot your Raspberry Pi:"
-echo "   sudo reboot"
-echo ""
-echo "=========================================="
+echo "A reboot is required for the panel to start."
+read -r -p "Reboot now? [y/N] " REBOOT_ANS || REBOOT_ANS=""
+case "$REBOOT_ANS" in
+    y|Y|yes|YES|Yes)
+        echo "Rebooting..."
+        reboot
+        ;;
+    *)
+        echo "Reboot manually when ready:  sudo reboot"
+        ;;
+esac
