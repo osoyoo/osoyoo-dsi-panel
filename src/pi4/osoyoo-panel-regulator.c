@@ -39,7 +39,7 @@ static int osoyoo_panel_gpio_get_direction(struct gpio_chip *gc, unsigned int of
 	return GPIO_LINE_DIRECTION_OUT;
 }
 
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 15, 0)
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 17, 0)
 static int osoyoo_panel_gpio_set(struct gpio_chip *gc, unsigned int off, int val)
 #else
 static void osoyoo_panel_gpio_set(struct gpio_chip *gc, unsigned int off, int val)
@@ -49,7 +49,7 @@ static void osoyoo_panel_gpio_set(struct gpio_chip *gc, unsigned int off, int va
 	u8 last_val;
 
 	if (off >= NUM_GPIO)
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 15, 0)
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 17, 0)
 		return -EINVAL;
 #else
 		return;
@@ -68,7 +68,7 @@ static void osoyoo_panel_gpio_set(struct gpio_chip *gc, unsigned int off, int va
 	regmap_write(state->regmap, REG_POWERON, last_val);
 
 	mutex_unlock(&state->lock);
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 15, 0)
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 17, 0)
 	return 0;
 #endif
 }
