@@ -1,24 +1,12 @@
+# Kernel module build artifacts
 *.o
 *.ko
 *.mod
 *.mod.c
-*.cmd
-.tmp_versions/
-Module.symvers
-modules.order
+*.mod.o
 *.dtbo
-debian/osoyoo-dsi-panel-dkms/
-debian/.debhelper/
-debian/debhelper-build-stamp
-debian/files
-debian/*.substvars
-debian/*.log
-../*.deb
-../*.changes
-../*.buildinfo
-../*.dsc
-../*.tar.*
-
-# macOS metadata
-.DS_Store
-._*
+.*.cmd
+*.symvers
+modules.order
+Module.symvers
+.tmp_versions/

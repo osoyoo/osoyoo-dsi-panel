@@ -5,8 +5,8 @@
 #include <linux/gpio/driver.h>
 #include <linux/module.h>
 #include <linux/regmap.h>
-#include <linux/regulator/driver.h>
 #include <linux/version.h>
+#include <linux/regulator/driver.h>
 
 #define REG_ID		0x01
 #define REG_POWERON	0x02
@@ -39,7 +39,12 @@ static int osoyoo_panel_gpio_get_direction(struct gpio_chip *gc, unsigned int of
 	return GPIO_LINE_DIRECTION_OUT;
 }
 
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 17, 0)
+/*
+ * Since kernel 6.15 the gpio_chip .set callback returns int (so GPIO writes
+ * can report errors). Older kernels use a void-returning .set. Keep both
+ * signatures buildable.
+ */
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 15, 0)
 static int osoyoo_panel_gpio_set(struct gpio_chip *gc, unsigned int off, int val)
 #else
 static void osoyoo_panel_gpio_set(struct gpio_chip *gc, unsigned int off, int val)
@@ -49,7 +54,7 @@ static void osoyoo_panel_gpio_set(struct gpio_chip *gc, unsigned int off, int va
 	u8 last_val;
 
 	if (off >= NUM_GPIO)
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 17, 0)
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 15, 0)
 		return -EINVAL;
 #else
 		return;
@@ -68,25 +73,11 @@ static void osoyoo_panel_gpio_set(struct gpio_chip *gc, unsigned int off, int va
 	regmap_write(state->regmap, REG_POWERON, last_val);
 
 	mutex_unlock(&state->lock);
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 17, 0)
+
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 15, 0)
 	return 0;
 #endif
 }
-
-static int osoyoo_panel_update_status(struct backlight_device *bl)
-{
-	struct regmap *regmap = bl_get_data(bl);
-	int brightness = bl->props.brightness;
-
-	if (bl->props.power != FB_BLANK_UNBLANK || bl->props.state & (BL_CORE_SUSPENDED | BL_CORE_FBBLANK))
-		brightness = 0;
-
-	return regmap_write(regmap, REG_PWM, brightness | PWM_BL_ENABLE);
-}
-
-static const struct backlight_ops osoyoo_panel_bl = {
-	.update_status = osoyoo_panel_update_status,
-};
 
 static int osoyoo_panel_i2c_read(struct i2c_client *client, u8 reg, unsigned int *buf)
 {
@@ -123,8 +114,6 @@ static int osoyoo_panel_i2c_read(struct i2c_client *client, u8 reg, unsigned int
 
 static int osoyoo_panel_i2c_probe(struct i2c_client *i2c)
 {
-	struct backlight_properties props = { };
-	struct backlight_device *bl;
 	struct osoyoo_panel_lcd *state;
 	struct regmap *regmap;
 	unsigned int data;
@@ -159,7 +148,13 @@ static int osoyoo_panel_i2c_probe(struct i2c_client *i2c)
 	state->gc.base = -1;
 	state->gc.ngpio = NUM_GPIO;
 
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 18, 0)
 	state->gc.set = osoyoo_panel_gpio_set;
+#elif LINUX_VERSION_CODE >= KERNEL_VERSION(6, 15, 0)
+	state->gc.set_rv = osoyoo_panel_gpio_set;
+#else
+	state->gc.set = osoyoo_panel_gpio_set;
+#endif
 	state->gc.get_direction = osoyoo_panel_gpio_get_direction;
 	state->gc.can_sleep = true;
 
@@ -168,16 +163,6 @@ static int osoyoo_panel_i2c_probe(struct i2c_client *i2c)
 		dev_err(&i2c->dev, "Failed to create gpiochip: %d\n", ret);
 		goto error;
 	}
-
-	props.type = BACKLIGHT_RAW;
-	props.max_brightness = PWM_VALUE;
-	bl = devm_backlight_device_register(&i2c->dev, dev_name(&i2c->dev),
-					    &i2c->dev, regmap, &osoyoo_panel_bl,
-					    &props);
-	if (IS_ERR(bl))
-		return PTR_ERR(bl);
-
-	bl->props.brightness = PWM_VALUE;
 
 	return 0;
 

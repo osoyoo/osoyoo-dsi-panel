@@ -20,14 +20,14 @@
 				#gpio-cells = <2>;
 			};
 
-			gt9271: gt9271@5d {
-				compatible = "goodix,gt9271";
+			gt911: gt911@5d {
+				compatible = "goodix,gt911";
 				reg = <0x5d>;
 				AVDD28-supply = <&touch_reg>;
-				touchscreen-size-x = <800>;
+				touchscreen-size-x = <720>;
 				touchscreen-size-y = <1280>;
-				touchscreen-x-mm = <135>;
-				touchscreen-y-mm = <216>;
+				touchscreen-x-mm = <87>;
+				touchscreen-y-mm = <155>;
 			};
 		};
 	};
@@ -47,9 +47,8 @@
 
 			dsi_panel: dsi_panel@0 {
 				reg = <0>;
-				compatible = "osoyoo,dsi-10.1inch-2lane";
+				compatible = "osoyoo,dsi-7inch";
 				reset-gpio = <&display_mcu 0 0>;
-				backlight = <&display_mcu>;
 
 				port {
 					panel_in: endpoint {
@@ -89,31 +88,30 @@
 	};
 
 	fragment@10 {
-		target = <&gt9271>;
+		target = <&gt911>;
 		__dormant__ {
 			touchscreen-inverted-x;
 		};
 	};
 
 	fragment@11 {
-		target = <&gt9271>;
+		target = <&gt911>;
 		__dormant__ {
 			touchscreen-inverted-y;
 		};
 	};
 
 	__overrides__ {
-		4lane = <&dsi_panel>, "compatible=osoyoo,dsi-10.1inch-4lane";
 		dsi0 = <&dsi_frag>, "target:0=",<&dsi0>,
 		       <&i2c_frag>, "target:0=",<&i2c_csi_dsi0>,
 		       <&touch_reg>, "reg:0=0",
 		       <&touch_reg>, "regulator-name=touch_reg_0";
-		sizex = <&gt9271>,"touchscreen-size-x:0";
-		sizey = <&gt9271>,"touchscreen-size-y:0";
+		sizex = <&gt911>,"touchscreen-size-x:0";
+		sizey = <&gt911>,"touchscreen-size-y:0";
 		invx = <0>, "+10";
 		invy = <0>, "+11";
-		swapxy = <&gt9271>,"touchscreen-swapped-x-y?";
-		disable_touch = <&gt9271>, "status=disabled";
+		swapxy = <&gt911>,"touchscreen-swapped-x-y?";
+		disable_touch = <&gt911>, "status=disabled";
 		rotation = <&dsi_panel>, "rotation:0";
 	};
 };
