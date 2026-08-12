@@ -81,6 +81,7 @@ struct osoyoo_desc {
 	const struct osoyoo_init_cmd *init;
 	size_t init_length;
 	const struct drm_display_mode *mode;
+	const struct drm_display_mode *mode_rp1;	/* optional bcm2712/RP1 override */
 	unsigned long mode_flags;
 	unsigned int lanes;
 	unsigned int reset_low_ms;	/* reset asserted (low) hold */
@@ -793,6 +794,30 @@ static const struct drm_display_mode osoyoo_st7701s_3p5_mode = {
 	.height_mm	= 76,
 };
 
+/*
+ * Pi 5 (RP1) variant of the 3.5" mode. RP1's DSI D-PHY will not lock the
+ * ~360 Mbps/lane link produced by the 30 MHz pixel clock above (vc4 on Pi 4
+ * tolerates it fine). Raise the pixel clock to 40 MHz (480 Mbps/lane) and
+ * absorb it into the vertical front porch so the panel still refreshes at
+ * ~55 Hz. Selected automatically on bcm2712 in osoyoo_panel_get_modes().
+ */
+static const struct drm_display_mode osoyoo_st7701s_3p5_mode_rp1 = {
+	.clock		= 40000,
+
+	.hdisplay	= 480,
+	.hsync_start	= 480 + 16,
+	.hsync_end	= 480 + 16 + 32,
+	.htotal		= 480 + 16 + 32 + 32,
+
+	.vdisplay	= 800,
+	.vsync_start	= 800 + 457,
+	.vsync_end	= 800 + 457 + 2,
+	.vtotal		= 800 + 457 + 2 + 45,
+
+	.width_mm	= 45,
+	.height_mm	= 76,
+};
+
 static const struct drm_display_mode osoyoo_dsi_7inch_mode = {
 	.clock		= 51200,
 
@@ -974,14 +999,23 @@ static int osoyoo_panel_get_modes(struct drm_panel *panel,
 				  struct drm_connector *connector)
 {
 	struct osoyoo_panel *ctx = to_osoyoo_panel(panel);
+	const struct drm_display_mode *src = ctx->desc->mode;
 	struct drm_display_mode *mode;
 
-	mode = drm_mode_duplicate(connector->dev, ctx->desc->mode);
+	/*
+	 * On bcm2712 (Pi 5 / CM5) the DSI goes through RP1, whose D-PHY will not
+	 * lock very low link rates. Panels that provide an RP1-specific mode
+	 * (higher pixel clock) use it there; every other board keeps the
+	 * vc4-proven default mode.
+	 */
+	if (ctx->desc->mode_rp1 && of_machine_is_compatible("brcm,bcm2712"))
+		src = ctx->desc->mode_rp1;
+
+	mode = drm_mode_duplicate(connector->dev, src);
 	if (!mode) {
 		dev_err(&ctx->dsi->dev, "failed to add mode %ux%u@%u\n",
-			ctx->desc->mode->hdisplay,
-			ctx->desc->mode->vdisplay,
-			drm_mode_vrefresh(ctx->desc->mode));
+			src->hdisplay, src->vdisplay,
+			drm_mode_vrefresh(src));
 		return -ENOMEM;
 	}
 
@@ -1089,6 +1123,7 @@ static const struct osoyoo_desc osoyoo_st7701s_3p5_desc = {
 	.init = osoyoo_st7701s_3p5_init,
 	.init_length = ARRAY_SIZE(osoyoo_st7701s_3p5_init),
 	.mode = &osoyoo_st7701s_3p5_mode,
+	.mode_rp1 = &osoyoo_st7701s_3p5_mode_rp1,
 	/*
 	 * vc4 drives ST7701 over DSI in burst mode with a non-continuous clock
 	 * (matches mainline panel-sitronix-st7701). Match the host, not the
