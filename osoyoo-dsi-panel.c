@@ -795,14 +795,15 @@ static const struct drm_display_mode osoyoo_st7701s_3p5_mode = {
 };
 
 /*
- * Pi 5 (RP1) variant of the 3.5" mode. RP1's DSI D-PHY will not lock the
- * ~360 Mbps/lane link produced by the 30 MHz pixel clock above (vc4 on Pi 4
- * tolerates it fine). Raise the pixel clock to 40 MHz (480 Mbps/lane) and
- * absorb it into the vertical front porch so the panel still refreshes at
- * ~55 Hz. Selected automatically on bcm2712 in osoyoo_panel_get_modes().
+ * Pi 5 (RP1) variant of the 3.5" mode. Selected automatically on bcm2712 in
+ * osoyoo_panel_get_modes(). This was previously raised to 40 MHz (480 Mbps/lane)
+ * on the assumption that RP1's DSI D-PHY could not lock the ~360 Mbps/lane link
+ * from the 30 MHz pixel clock, but 40 MHz caused severe flicker and horizontal
+ * stripes on tested units. Reverted to the same 30 MHz timing as the default
+ * mode, which is verified stable on Pi 5.
  */
 static const struct drm_display_mode osoyoo_st7701s_3p5_mode_rp1 = {
-	.clock		= 40000,
+	.clock		= 30000,
 
 	.hdisplay	= 480,
 	.hsync_start	= 480 + 16,
@@ -810,9 +811,9 @@ static const struct drm_display_mode osoyoo_st7701s_3p5_mode_rp1 = {
 	.htotal		= 480 + 16 + 32 + 32,
 
 	.vdisplay	= 800,
-	.vsync_start	= 800 + 457,
-	.vsync_end	= 800 + 457 + 2,
-	.vtotal		= 800 + 457 + 2 + 45,
+	.vsync_start	= 800 + 131,
+	.vsync_end	= 800 + 131 + 2,
+	.vtotal		= 800 + 131 + 2 + 45,
 
 	.width_mm	= 45,
 	.height_mm	= 76,
